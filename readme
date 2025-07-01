@@ -1,0 +1,51 @@
+# GearTrack
+
+**GearTrack** is a modern, Mac-friendly equipment management app for checking in/out gear, tracking users, printing barcode/QR labels, and keeping secure, detailed logs.
+
+## 🚀 Features
+- Check-in/check-out items
+- Admin/user management (secure login, inactivity logout)
+- Notes, image uploads, asset status (good/worn/needs repair)
+- Print/export barcode and QR labels (with date in service and all fields)
+- Kiosk mode (admin-only exit)
+- Export filtered reports (CSV, PDF)
+- Custom branding
+
+## 🛠️ Installation
+
+1. **Install Python 3.9+**  
+   Download: [https://www.python.org/downloads/](https://www.python.org/downloads/)
+
+2. **Install requirements:**  
+
+3. **Run the app:**  
+
+4. **Build `.app` for macOS (optional):**  
+Your `.app` will be in `dist/`. Drag to Applications.
+
+5. **Create a `.dmg` installer (optional):**  
+Use Disk Utility:  
+- File → New Image → Image from Folder → select your `dist/GearTrack.app`
+
+## 🔑 Default Admin Login
+- **Username:** admin
+- **Password:** admin123
+
+## 🏷️ Barcode/QR Code Printing
+Each item generates Code128 and QR codes with all key fields. Print labels via the interface.
+
+## 👩‍💻 Customization
+- Place your logo in `src/assets/logo.png`
+- Edit colors/fonts in `gui.py`
+
+## 🧑‍🔧 Support & Future
+- Barcode scanning & mobile: see future roadmap at bottom of this file!
+
+---
+
+## Roadmap
+- Mobile companion & barcode scanning (iOS/Android)
+- Cloud database sync
+- More reports/filters
+
+**Built with Python & PyQt5.**
