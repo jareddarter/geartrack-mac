@@ -56,10 +56,89 @@ def run_app():
     login = LoginDialog()
     if login.exec_() == QtWidgets.QDialog.Accepted:
         user = login.user
+
+        # Main Window
         main_window = QtWidgets.QMainWindow()
         main_window.setWindowTitle(f"GearTrack - Welcome, {user['username']}")
-        main_window.setGeometry(100, 100, 900, 600)
-        label = QtWidgets.QLabel(f"Hello, {user['username']}! (UI implementation goes here.)", main_window)
-        label.move(50, 50)
+        main_window.setGeometry(100, 100, 1000, 600)
+        
+        # Central widget and layout
+        central = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(central)
+
+        # Equipment Table
+        table = QtWidgets.QTableWidget()
+        table.setColumnCount(7)
+        table.setHorizontalHeaderLabels([
+            "ID", "Name", "Serial", "In Service", "Condition", "Notes", "Status"
+        ])
+        table.horizontalHeader().setStretchLastSection(True)
+        layout.addWidget(table)
+
+        # Toolbar for actions
+        toolbar = QtWidgets.QHBoxLayout()
+        btn_refresh = QtWidgets.QPushButton("Refresh")
+        btn_add = QtWidgets.QPushButton("Add Item")
+        toolbar.addWidget(btn_refresh)
+        toolbar.addWidget(btn_add)
+        toolbar.addStretch()
+        layout.addLayout(toolbar)
+
+        central.setLayout(layout)
+        main_window.setCentralWidget(central)
+
+        # --- Equipment logic ---
+        from src.equipment import add_equipment
+        import datetime
+
+        def load_equipment():
+            from src.db import get_db
+            db = get_db()
+            items = db.execute("SELECT * FROM equipment").fetchall()
+            table.setRowCount(len(items))
+            for row, item in enumerate(items):
+                table.setItem(row, 0, QtWidgets.QTableWidgetItem(str(item["id"])))
+                table.setItem(row, 1, QtWidgets.QTableWidgetItem(item["name"]))
+                table.setItem(row, 2, QtWidgets.QTableWidgetItem(item["serial"]))
+                table.setItem(row, 3, QtWidgets.QTableWidgetItem(item["date_in_service"]))
+                table.setItem(row, 4, QtWidgets.QTableWidgetItem(item["condition"]))
+                table.setItem(row, 5, QtWidgets.QTableWidgetItem(item["notes"]))
+                table.setItem(row, 6, QtWidgets.QTableWidgetItem("Available"))
+            table.resizeColumnsToContents()
+
+        def add_item():
+            dialog = QtWidgets.QDialog(main_window)
+            dialog.setWindowTitle("Add Equipment")
+            vbox = QtWidgets.QVBoxLayout(dialog)
+            name = QtWidgets.QLineEdit()
+            name.setPlaceholderText("Item Name")
+            serial = QtWidgets.QLineEdit()
+            serial.setPlaceholderText("Serial Number")
+            date_in_service = QtWidgets.QLineEdit(datetime.date.today().isoformat())
+            condition = QtWidgets.QComboBox()
+            condition.addItems(["Good", "Worn", "Needs Repair"])
+            notes = QtWidgets.QLineEdit()
+            notes.setPlaceholderText("Notes")
+            ok = QtWidgets.QPushButton("Add")
+            ok.clicked.connect(dialog.accept)
+            vbox.addWidget(QtWidgets.QLabel("Name:")); vbox.addWidget(name)
+            vbox.addWidget(QtWidgets.QLabel("Serial:")); vbox.addWidget(serial)
+            vbox.addWidget(QtWidgets.QLabel("Date In Service:")); vbox.addWidget(date_in_service)
+            vbox.addWidget(QtWidgets.QLabel("Condition:")); vbox.addWidget(condition)
+            vbox.addWidget(QtWidgets.QLabel("Notes:")); vbox.addWidget(notes)
+            vbox.addWidget(ok)
+
+            if dialog.exec_() == QtWidgets.QDialog.Accepted:
+                add_equipment(
+                    name.text(), serial.text(), date_in_service.text(),
+                    condition.currentText(), notes.text(), ""
+                )
+                load_equipment()
+
+        btn_refresh.clicked.connect(load_equipment)
+        btn_add.clicked.connect(add_item)
+
+        load_equipment()
         main_window.show()
         sys.exit(app.exec_())
+
