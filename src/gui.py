@@ -91,7 +91,7 @@ def run_app():
         from src.equipment import add_equipment
         import datetime
 
-     def load_equipment():
+    def load_equipment():
     from src.db import get_db
     db = get_db()
     items = db.execute("SELECT * FROM equipment").fetchall()
@@ -103,83 +103,56 @@ def run_app():
         table.setItem(row, 3, QtWidgets.QTableWidgetItem(item["date_in_service"]))
         table.setItem(row, 4, QtWidgets.QTableWidgetItem(item["condition"]))
         table.setItem(row, 5, QtWidgets.QTableWidgetItem(item["notes"]))
-        
+
+        # Determine status
+        latest_log = db.execute(
+            "SELECT action FROM logs WHERE equipment_id=? ORDER BY timestamp DESC LIMIT 1",
+            (item["id"],)
+        ).fetchone()
+        is_checked_out = latest_log and latest_log["action"] == "checked-out"
+        status_str = "Checked Out" if is_checked_out else "Available"
+
         # Status and action buttons
         action_widget = QtWidgets.QWidget()
         h = QtWidgets.QHBoxLayout(action_widget)
-        btn_check = QtWidgets.QPushButton("Check-Out")
+        btn_toggle = QtWidgets.QPushButton("Check-In" if is_checked_out else "Check-Out")
         btn_img = QtWidgets.QPushButton("Image")
         btn_bar = QtWidgets.QPushButton("Barcode")
-        h.addWidget(btn_check)
+        h.addWidget(btn_toggle)
         h.addWidget(btn_img)
         h.addWidget(btn_bar)
         h.setContentsMargins(0,0,0,0)
         action_widget.setLayout(h)
         table.setCellWidget(row, 6, action_widget)
 
-        # Connect actions
-        def make_check_fn(equip_id=item["id"]):
+        # Set status visually
+        status_item = QtWidgets.QTableWidgetItem(status_str)
+        status_item.setBackground(QtGui.QColor("#FFC0CB") if is_checked_out else QtGui.QColor("#C0FFC0"))
+        table.setItem(row, 6, status_item)
+
+        # Action logic
+        def make_toggle_fn(equip_id=item["id"], currently_out=is_checked_out):
             def fn():
-                # In real app: log user and timestamp
-                from src.db import get_db
                 db = get_db()
+                action = "checked-in" if currently_out else "checked-out"
                 db.execute(
                     "INSERT INTO logs (equipment_id, user_id, action, timestamp, note) VALUES (?, ?, ?, datetime('now'), ?)",
-                    (equip_id, user["id"], "checked-out", "")
+                    (equip_id, user["id"], action, "")
                 )
                 db.commit()
-                QtWidgets.QMessageBox.information(main_window, "Checked Out", "Item checked out!")
+                QtWidgets.QMessageBox.information(main_window, "Status Changed", f"Item {action.replace('-', ' ')}!")
                 load_equipment()
             return fn
 
-        btn_check.clicked.connect(make_check_fn())
+        btn_toggle.clicked.connect(make_toggle_fn())
 
-        def make_img_fn(equip_id=item["id"]):
-            def fn():
-                # Select and save image file path
-                file, _ = QtWidgets.QFileDialog.getOpenFileName(main_window, "Select Image")
-                if file:
-                    db = get_db()
-                    db.execute("UPDATE equipment SET image_path=? WHERE id=?", (file, equip_id))
-                    db.commit()
-                    QtWidgets.QMessageBox.information(main_window, "Image Added", "Image attached to item.")
-            return fn
-
-        btn_img.clicked.connect(make_img_fn())
-
-        def make_bar_fn(equip=item):
-            def fn():
-                # Show dialog to select barcode type and generate/preview
-                dlg = QtWidgets.QDialog(main_window)
-                dlg.setWindowTitle("Generate Barcode/QR")
-                v = QtWidgets.QVBoxLayout(dlg)
-                typebox = QtWidgets.QComboBox()
-                typebox.addItems(["Code128", "QR"])
-                btn_gen = QtWidgets.QPushButton("Generate")
-                img_label = QtWidgets.QLabel()
-                v.addWidget(QtWidgets.QLabel("Type:")); v.addWidget(typebox)
-                v.addWidget(btn_gen); v.addWidget(img_label)
-                def gen():
-                    import tempfile, os
-                    data = f"{equip['name']} | {equip['serial']} | {equip['date_in_service']} | {equip['condition']} | {equip['notes']}"
-                    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
-                    tmp.close()
-                    if typebox.currentText() == "Code128":
-                        from src.barcode_utils import generate_code128
-                        generate_code128(data, tmp.name)
-                    else:
-                        from src.barcode_utils import generate_qr
-                        generate_qr(data, tmp.name)
-                    img = QtGui.QPixmap(tmp.name)
-                    img_label.setPixmap(img.scaled(250, 80 if typebox.currentText()=="Code128" else 250))
-                    os.unlink(tmp.name)
-                btn_gen.clicked.connect(gen)
-                dlg.exec_()
-            return fn
-
-        btn_bar.clicked.connect(make_bar_fn())
+        # Image and barcode remain as before
+        btn_img.clicked.connect(make_img_fn(item["id"]))
+        btn_bar.clicked.connect(make_bar_fn(item))
 
     table.resizeColumnsToContents()
+btn_export_csv.clicked.connect(export_csv)
+btn_export_pdf.clicked.connect(export_pdf)
 
 
         def add_item():
